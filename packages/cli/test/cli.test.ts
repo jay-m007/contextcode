@@ -101,12 +101,23 @@ describe("cli ask", () => {
 
 describe("cli output through a pipe", () => {
   it("is not cut off when the reader is slow", async () => {
-    const { spawnSync } = await import("node:child_process");
+    // Plain Node instead of a shell pipeline, so the test behaves the same on Windows.
+    const { spawn, spawnSync } = await import("node:child_process");
     const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist", "index.js");
     const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-    const res = spawnSync("bash", ["-c", `node "${cli}" pack "how is the budget packed" "${repo}/packages" -b 32000 | (sleep 1; wc -c)`], { encoding: "utf8" });
-    const viaFile = spawnSync("node", [cli, "pack", "how is the budget packed", `${repo}/packages`, "-b", "32000"], { encoding: "utf8", maxBuffer: 1 << 24 });
-    expect(Number(res.stdout.trim())).toBe(Buffer.byteLength(viaFile.stdout));
-    expect(Buffer.byteLength(viaFile.stdout)).toBeGreaterThan(70_000);
+    const args = [cli, "pack", "how is the budget packed", path.join(repo, "packages"), "-b", "32000"];
+
+    const expected = Buffer.byteLength(spawnSync(process.execPath, args, { encoding: "utf8", maxBuffer: 1 << 24 }).stdout);
+    expect(expected).toBeGreaterThan(70_000);
+
+    // A slow reader: don't read the pipe for a second, so the CLI's writes back up.
+    const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "ignore"] });
+    child.stdout.pause();
+    await new Promise((r) => setTimeout(r, 1000));
+    let received = 0;
+    child.stdout.on("data", (d: Buffer) => (received += d.length));
+    child.stdout.resume();
+    await new Promise((r) => child.on("close", r));
+    expect(received).toBe(expected);
   });
 });
