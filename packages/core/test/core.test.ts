@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildIndex } from "../src/build.js";
 import { evaluate, grepRank } from "../src/evaluate.js";
-import { format, pack, renderFocused, renderOutline } from "../src/pack.js";
+import { format, pack, packRanked, renderFocused, renderOutline } from "../src/pack.js";
 import { prepare, search } from "../src/search.js";
 import { extractSections, extractSymbols } from "../src/symbols.js";
 import { estimateTokens, splitIdentifier, stem, terms } from "../src/text.js";
@@ -156,6 +156,15 @@ describe("pack", () => {
     expect(out).toContain("export function addToCart(items: CartItem[], sku: string): CartItem[] { … }");
     expect(out).toContain("export interface CartItem {");
     expect(out).not.toContain("reduce");
+  });
+
+  it("honours manual overrides: fixed detail levels count first, off removes a file", () => {
+    const p = prepare(index);
+    const ranked = search(p, "how are the password credentials checked");
+    const pk = packRanked(p, "q", ranked, { budget: 4000, overrides: { "src/lib/auth.ts": "outline", "src/components/LoginForm.tsx": "off", "src/lib/cart.ts": "full" } });
+    expect(pk.files.find((f) => f.path === "src/lib/auth.ts")?.tier).toBe("outline");
+    expect(pk.files.some((f) => f.path === "src/components/LoginForm.tsx")).toBe(false);
+    expect(pk.files.find((f) => f.path === "src/lib/cart.ts")?.tier).toBe("full"); // pinned although it has nothing to do with the question
   });
 
   it("formats as Markdown, escaped XML and JSON", () => {

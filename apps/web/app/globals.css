@@ -1,0 +1,159 @@
+/*
+ * ContextCode: "highlighter on printouts".
+ * Ink-plum surfaces (dark, default) or cool paper (light). One accent, the
+ * highlighter yellow, used only where the question touches the code: marked
+ * words and the filled part of the budget meter. Detail levels are told apart
+ * by texture (solid / hatched / outlined) plus a label, never by colour alone.
+ */
+:root {
+  --font-ui: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 18px;
+  --text-xl: 24px;
+  --text-hero: 40px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  /* light: cool paper */
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #eceef3;
+  --ink: #1d1a26;
+  --ink-2: #4d4859;
+  --ink-3: #6f6a7c;
+  --rule: rgba(29, 26, 38, 0.12);
+  --rule-strong: rgba(29, 26, 38, 0.24);
+  --hl: #f2d544;
+  --hl-ink: #1d1a26;
+  --hl-soft: rgba(242, 213, 68, 0.45);
+  --link: #5b3fc4;
+  --danger: #c2372f;
+  --focus: #5b3fc4;
+  --code-bg: #fbfbfd;
+  --meter-track: #e4e6ec;
+  --meter-ink: #7a5f00; /* strokes and hatching on the light track; plain yellow is too faint there */
+  --shadow: 0 1px 2px rgba(29, 26, 38, 0.06), 0 4px 16px rgba(29, 26, 38, 0.05);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15111d;
+    --surface: #1d1828;
+    --surface-2: #262033;
+    --ink: #ece7f4;
+    --ink-2: #bdb5cc;
+    --ink-3: #958ca7;
+    --rule: rgba(236, 231, 244, 0.1);
+    --rule-strong: rgba(236, 231, 244, 0.22);
+    --hl: #f2d544;
+    --hl-ink: #15111d;
+    --hl-soft: rgba(242, 213, 68, 0.28);
+    --link: #b9a6ff;
+    --danger: #ff7a70;
+    --focus: #b9a6ff;
+    --code-bg: #18131f;
+    --meter-track: #2c2539;
+    --meter-ink: #f2d544;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #15111d;
+  --surface: #1d1828;
+  --surface-2: #262033;
+  --ink: #ece7f4;
+  --ink-2: #bdb5cc;
+  --ink-3: #958ca7;
+  --rule: rgba(236, 231, 244, 0.1);
+  --rule-strong: rgba(236, 231, 244, 0.22);
+  --hl: #f2d544;
+  --hl-ink: #15111d;
+  --hl-soft: rgba(242, 213, 68, 0.28);
+  --link: #b9a6ff;
+  --danger: #ff7a70;
+  --focus: #b9a6ff;
+  --code-bg: #18131f;
+  --meter-track: #2c2539;
+  --meter-ink: #f2d544;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--font-code);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+mark {
+  background: var(--hl);
+  color: var(--hl-ink);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}

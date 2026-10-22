@@ -30,6 +30,8 @@ export interface PackOptions extends SearchOptions {
   focusedSymbols?: number;
   /** "breadth" (default): a focused view of many files first, then upgrade. "depth": the richest view of each file in turn. */
   strategy?: "breadth" | "depth";
+  /** Manual choices from the user: a fixed detail level for a file, or "off" to leave it out. */
+  overrides?: Record<string, Tier | "off">;
   /** Prefix each line with its line number (default false). */
   lineNumbers?: boolean;
 }
@@ -53,7 +55,15 @@ export function packRanked(p: Prepared, query: string, ranked: Ranked[], options
   const budget = options.budget ?? 8000;
   const cap = Math.floor(budget * (options.maxFileShare ?? 0.4));
   const top = ranked[0]?.score ?? 0;
-  const candidates = ranked.filter((r) => r.score >= top * (options.minRelativeScore ?? 0.08));
+  const overrides = options.overrides ?? {};
+  // A file the user pinned is included even if it didn't match the question.
+  const listed = new Set(ranked.map((r) => r.path));
+  const pinned: Ranked[] = Object.entries(overrides)
+    .filter(([path, t]) => t !== "off" && !listed.has(path) && p.byPath.has(path))
+    .map(([path]) => ({ path, score: 0, lexical: 0, graph: 0, reasons: [{ kind: "focus", detail: "added by you" }], matchedSymbols: [] }));
+  const candidates = [...ranked, ...pinned].filter(
+    (r) => overrides[r.path] !== "off" && (overrides[r.path] || r.score >= top * (options.minRelativeScore ?? 0.08)),
+  );
   const qTerms = queryTerms(query);
 
   // Every candidate's three renderings, with their costs.
@@ -78,11 +88,22 @@ export function packRanked(p: Prepared, query: string, ranked: Ranked[], options
   const fits = (c: Choice, t: Tier, limit: number) => c.cost[t] <= limit && used + c.cost[t] <= budget;
 
   const strategy = options.strategy ?? "breadth";
+
+  // The user's fixed choices come first and always count, even past the budget
+  // (the UI shows the overflow rather than silently dropping what they chose).
+  for (const c of choices) {
+    const forced = overrides[c.r.path];
+    if (forced && forced !== "off") {
+      c.tier = forced;
+      used += c.cost[forced];
+    }
+  }
+  const auto = choices.filter((c) => !c.tier);
   const SMALL = 500; // files this small are cheaper to send whole than to summarise
 
   if (strategy === "depth") {
     // Richest level that fits, in ranked order.
-    for (const c of choices) {
+    for (const c of auto) {
       const limit = c.r.reasons.some((x) => x.kind === "focus") ? Math.floor(budget * 0.6) : cap;
       for (const t of ORDER) {
         if (t === "focused" && c.render.focused === c.render.full) continue;
@@ -94,7 +115,7 @@ export function packRanked(p: Prepared, query: string, ranked: Ranked[], options
     // Breadth first: every candidate, in ranked order, gets the cheapest useful
     // view (small files whole, others focused, outline as a fallback), so the
     // answer is still included when it's ranked 6th rather than 1st.
-    for (const c of choices) {
+    for (const c of auto) {
       const limit = c.r.reasons.some((x) => x.kind === "focus") ? Math.floor(budget * 0.6) : cap;
       const order: Tier[] = c.cost.full <= SMALL || c.render.focused === c.render.full ? ["full", "outline"] : ["focused", "outline"];
       for (const t of order) {
@@ -105,7 +126,7 @@ export function packRanked(p: Prepared, query: string, ranked: Ranked[], options
   }
 
   // Then spend what's left upgrading files in ranked order (outline -> focused -> full).
-  for (const c of choices) {
+  for (const c of auto) {
     if (!c.tier || c.tier === "full") continue;
     const limit = c.r.reasons.some((x) => x.kind === "focus") ? Math.floor(budget * 0.6) : cap;
     for (const t of ORDER.slice(0, ORDER.indexOf(c.tier))) {

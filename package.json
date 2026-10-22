@@ -10,8 +10,9 @@
   "scripts": {
     "build": "npm run build -w @contextcode/core && npm run build -w @contextcode/cli",
     "test": "vitest run",
-    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/cli --noEmit",
-    "cc": "node packages/cli/dist/index.js"
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/cli --noEmit && tsc -p apps/web --noEmit",
+    "cc": "node packages/cli/dist/index.js",
+    "build:web": "npm run build -w @contextcode/web"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
