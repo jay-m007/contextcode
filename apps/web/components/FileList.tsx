@@ -62,7 +62,7 @@ export function FileList(props: {
             const p = packed.get(r.path);
             const o = overrides[r.path];
             const auto = p?.tier ?? null;
-            const state = o ?? auto ?? "off";
+            const state = o ?? auto; // nothing selected when the packer simply couldn't fit it
             const slash = r.path.lastIndexOf("/");
             return (
               <li key={r.path} className={`row${p ? "" : " row--out"}`}>
@@ -133,7 +133,13 @@ function AddFile({ index, pinned, onPin }: { index: Index; pinned: string[]; onP
   }, [q, index, pinned]);
 
   return (
-    <div className="addfile">
+    <div
+      className="addfile"
+      onBlur={(e) => {
+        // Close only when focus leaves the input and its list together, so Tab can reach the results.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <label htmlFor="addfile" className="visually-hidden">
         Pin a file
       </label>
@@ -153,11 +159,10 @@ function AddFile({ index, pinned, onPin }: { index: Index; pinned: string[]; onP
           }
           if (e.key === "Escape") setOpen(false);
         }}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
         autoComplete="off"
       />
       {open && hits.length > 0 && (
-        <ul className="addfile__list" role="listbox" aria-label="Matching files">
+        <ul className="addfile__list" aria-label="Matching files">
           {hits.map((f) => (
             <li key={f.path}>
               <button

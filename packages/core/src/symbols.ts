@@ -30,6 +30,7 @@ export function extractSymbols(fileName: string, text: string, parsed?: ts.Sourc
       startLine: line(start),
       endLine: line(node.getEnd()),
       signature: signatureOf(node, sf),
+      hasBody: !!bodyOf(node) && !ts.isClassDeclaration(node),
       doc: docOf(node, sf),
       parent,
     });
@@ -38,8 +39,12 @@ export function extractSymbols(fileName: string, text: string, parsed?: ts.Sourc
   for (const stmt of sf.statements) {
     const exported = isExported(stmt);
 
-    if (ts.isFunctionDeclaration(stmt) && stmt.name) {
-      push(stmt, stmt.name.text, looksLikeComponent(stmt.name.text, stmt) ? "component" : "function", exported);
+    if (ts.isFunctionDeclaration(stmt)) {
+      const name = stmt.name?.text ?? "default"; // export default function () {}
+      push(stmt, name, looksLikeComponent(name, stmt) ? "component" : "function", exported);
+    } else if (ts.isModuleDeclaration(stmt)) {
+      // namespace X {}  /  declare module "x" {}
+      push(stmt, stmt.name.text, "variable", exported);
     } else if (ts.isClassDeclaration(stmt)) {
       const className = stmt.name?.text ?? "default";
       push(stmt, className, "class", exported);
@@ -82,7 +87,7 @@ export function extractSymbols(fileName: string, text: string, parsed?: ts.Sourc
  * searched and included one section at a time.
  */
 export function extractSections(text: string): CodeSymbol[] {
-  const lines = text.split("\n");
+  const lines = text.replace(/\n+$/, "").split("\n");
   const out: CodeSymbol[] = [];
   let inFence = false;
   for (let i = 0; i < lines.length; i++) {

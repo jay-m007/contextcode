@@ -210,8 +210,14 @@ export function rankSymbols(p: Prepared, file: IndexedFile, qTerms: string[]): C
     for (const [t, c] of counts) score += idf(p, t) * Math.log2(1 + c);
     if (score > 0) scored.push({ s, score });
   }
-  // A class whose methods matched is represented by those methods, not by itself.
-  return scored.sort((a, b) => b.score - a.score).map((x) => x.s);
+  // A class whose methods matched is represented by those methods, not by itself:
+  // otherwise the class (whose body contains the methods) would always win, and a
+  // focused view would show its first lines instead of the method that matters.
+  const classesWithHits = new Set(scored.filter((x) => x.s.parent).map((x) => x.s.parent));
+  return scored
+    .filter((x) => !(x.s.kind === "class" && classesWithHits.has(x.s.name)))
+    .sort((a, b) => b.score - a.score)
+    .map((x) => x.s);
 }
 
 /**
@@ -254,6 +260,7 @@ export function personalisedPageRank(p: Prepared, restart: Float64Array): Float6
   });
 
   let rank = Float64Array.from(r);
+  let lastBack = ALPHA;
   for (let it = 0; it < ITERATIONS; it++) {
     const next = new Float64Array(n);
     let dangling = 0;
@@ -266,13 +273,16 @@ export function personalisedPageRank(p: Prepared, restart: Float64Array): Float6
     }
     const back = ALPHA + (1 - ALPHA) * dangling; // restarts plus walkers stuck on files with no imports
     for (let i = 0; i < n; i++) next[i] += back * r[i];
+    lastBack = back;
     // Renormalise for files that had no neighbours (their (1-ALPHA) share went to `dangling` already).
     rank = next;
   }
 
   // Keep only what arrived by walking imports: the restart mass each seed gets
   // back by definition says nothing about its neighbourhood.
-  for (let i = 0; i < n; i++) rank[i] = Math.max(0, rank[i] - ALPHA * r[i]);
+  // That includes walkers sent back from files with no imports, so subtract the
+  // whole restart injected in the last step, not just ALPHA.
+  for (let i = 0; i < n; i++) rank[i] = Math.max(0, rank[i] - lastBack * r[i]);
 
   // Shared hubs (a types.ts imported by everything) collect walkers from every
   // direction. They are useful context, but shouldn't outrank the actual answer,

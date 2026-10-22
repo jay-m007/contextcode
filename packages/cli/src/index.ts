@@ -120,7 +120,7 @@ function normaliseFocus(index: Index, focus: string[]): string[] {
   return focus.map((f) => {
     const abs = path.resolve(f);
     const rel = path.relative(index.meta.root, abs).split(path.sep).join("/");
-    const candidate = known.has(rel) ? rel : f.replace(/^\.\//, "").split(path.sep).join("/");
+    const candidate = known.has(rel) ? rel : f.replace(/^\.[\\/]/, "").split(path.sep).join("/");
     if (!known.has(candidate)) throw new UsageError(`--focus ${f}: not a file in the index`);
     return candidate;
   });
@@ -165,7 +165,7 @@ export async function main(argv: string[]): Promise<number> {
         if (!apiKey) throw new UsageError("ask needs an API key in OPENAI_API_KEY (any OpenAI-compatible provider works; set --base-url for others)");
         const index = await loadIndex(path.resolve(target), args);
         if (index.files.length === 0) throw new UsageError(`No JavaScript or TypeScript files found in ${index.meta.root}`);
-        const pk = pack(prepare(index), question, { focus: normaliseFocus(index, args.focus), budget: args.budget, lineNumbers: true, graphWeight: args.graph ? undefined : 0 });
+        const pk = pack(prepare(index), question, { focus: normaliseFocus(index, args.focus), budget: args.budget, lineNumbers: true, format: "xml", graphWeight: args.graph ? undefined : 0 });
         if (pk.files.length === 0) throw new UsageError("Nothing in the project matches the question. Try other words or name a file with --focus.");
         if (args.showContext) write(format(pk, "markdown") + "\n---\n");
         info(`Sending ${pk.files.length} files (~${pk.tokens} tokens) to ${args.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini"}…\n`);
@@ -204,7 +204,7 @@ export async function main(argv: string[]): Promise<number> {
           return 0;
         }
 
-        const pk = pack(prepared, question, { focus, budget: args.budget, lineNumbers: args.lineNumbers, graphWeight: args.graph ? undefined : 0 });
+        const pk = pack(prepared, question, { focus, budget: args.budget, lineNumbers: args.lineNumbers, format: args.format, graphWeight: args.graph ? undefined : 0 });
         write(format(pk, args.format), args.out);
         const tiers = ["full", "focused", "outline"].map((t) => `${pk.files.filter((f) => f.tier === t).length} ${t}`).join(", ");
         info(`Packed ${pk.files.length} of ${index.files.length} files (${tiers}) into ~${pk.tokens}/${pk.budget} tokens${args.out ? ` → ${args.out}` : ""}.`);
@@ -253,4 +253,6 @@ export async function main(argv: string[]): Promise<number> {
 }
 
 const isMain = process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
-if (isMain) main(process.argv.slice(2)).then((code) => process.exit(code));
+// Set the exit code instead of calling process.exit(): exiting immediately would cut off
+// output still being written to a pipe (e.g. `contextcode pack ... | pbcopy`).
+if (isMain) main(process.argv.slice(2)).then((code) => (process.exitCode = code));

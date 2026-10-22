@@ -228,3 +228,83 @@ describe("ask", () => {
     await expect(ask(pack(prepare(index), "cart", { budget: 1000 }), { apiKey: "k", fetchImpl })).rejects.toThrow("401: bad key");
   });
 });
+
+describe("review fixes", () => {
+  const tmpIndex = async (files: Record<string, string>) => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cc-"));
+    for (const [p, t] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(tmp, p)), { recursive: true });
+      fs.writeFileSync(path.join(tmp, p), t);
+    }
+    return buildIndex(tmp);
+  };
+
+  it("the formatted output fits the budget in both Markdown and XML", async () => {
+    const big = await buildIndex(path.join(fixture, "..", "..", "..", "src"));
+    const p = prepare(big);
+    for (const budget of [400, 1000, 3000, 8000]) {
+      for (const fmt of ["markdown", "xml"] as const) {
+        const pk = pack(p, "how is the token budget packed into focused and outline views", { budget, format: fmt });
+        expect(estimateTokens(format(pk, fmt))).toBeLessThanOrEqual(budget);
+        if (pk.files.length) expect(pk.tokens).toBe(estimateTokens(format(pk, fmt)));
+      }
+    }
+  });
+
+  it("a focused view of a big class shows the matching method, not the class's first lines", async () => {
+    const methods = Array.from({ length: 30 }, (_, i) => `  helper${i}(x: number) {\n    return x + ${i};\n  }\n`).join("\n");
+    const idx = await tmpIndex({ "service.ts": `export class PaymentService {\n${methods}\n  refundCharge(id: string) {\n    return "refunded " + id;\n  }\n}\n` });
+    const pk = pack(prepare(idx), "refund charge", { budget: 600 });
+    expect(pk.files[0].tier).toBe("focused");
+    expect(pk.files[0].content).toContain('return "refunded " + id;');
+  });
+
+  it("long and short forms meet: image/img, message/msg, repository/repo, billing/payment", () => {
+    expect(terms("image")).toEqual(terms("img"));
+    expect(terms("message")).toEqual(terms("msg"));
+    expect(terms("repository")).toEqual(terms("repo"));
+    expect(terms("billing")).toEqual(terms("payment"));
+    expect(terms("role")).not.toEqual(terms("permission")); // JSX role="button" is not about permissions
+    expect(stem("noted")).not.toBe("not");
+  });
+
+  it("an isolated file gets no graph boost", async () => {
+    const idx = await tmpIndex({ "a.ts": "export const alpha = 1", "b.ts": "import { c } from './c'; export const beta = c", "c.ts": "export const c = 2" });
+    const r = search(prepare(idx), "alpha");
+    expect(r.find((x) => x.path === "a.ts")!.graph).toBe(0);
+  });
+
+  it("anonymous default functions and namespaces are declarations; one-line bodies are marked", () => {
+    const syms = extractSymbols("x.ts", "export default function () { return 1 }\nnamespace Util { export const x = 1 }\nexport function f() { return 1 }\n");
+    expect(syms.map((s) => s.name)).toEqual(["default", "Util", "f"]);
+    const file = { path: "x.ts", kind: "code" as const, text: "export function f() { return 1 }\n", lines: 1, tokens: 9, symbols: extractSymbols("x.ts", "export function f() { return 1 }\n"), imports: [], importedBy: [], packages: [] };
+    expect(renderOutline(file)).toBe("export function f() { … }");
+  });
+
+  it("uses a fence longer than any backtick run in the content", async () => {
+    const idx = await tmpIndex({ "notes.md": "# Notes\n\n````md\n```js\nx\n```\n````\n" });
+    const md = format(pack(prepare(idx), "notes", { budget: 1000 }));
+    expect(md).toContain("`````md\n# Notes");
+  });
+
+  it("the last Markdown section ends at the last real line", () => {
+    const secs = extractSections("# A\ntext\n\n\n");
+    expect(secs[0].endLine).toBe(2);
+  });
+});
+
+describe("ask stream fixes", () => {
+  const sse = (chunks: string[]) =>
+    new Response(new ReadableStream({ start(c) { for (const x of chunks) c.enqueue(new TextEncoder().encode(x)); c.close(); } }), { status: 200 });
+
+  it("keeps a final event that has no trailing newline", async () => {
+    const fetchImpl = (async () => sse(['data: {"choices":[{"delta":{"content":"Hel"}}]}\n\n', 'data: {"choices":[{"delta":{"content":"lo"}}]}'])) as typeof fetch;
+    const res = await ask(pack(prepare(index), "cart", { budget: 1000 }), { apiKey: "k", fetchImpl, onToken: () => {} });
+    expect(res.answer).toBe("Hello");
+  });
+
+  it("throws on an error event in the middle of the stream", async () => {
+    const fetchImpl = (async () => sse(['data: {"error":{"message":"context length exceeded"}}\n\n'])) as typeof fetch;
+    await expect(ask(pack(prepare(index), "cart", { budget: 1000 }), { apiKey: "k", fetchImpl, onToken: () => {} })).rejects.toThrow("context length exceeded");
+  });
+});

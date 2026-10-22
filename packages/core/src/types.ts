@@ -45,6 +45,8 @@ export interface CodeSymbol {
   signature: string;
   /** First sentence of the JSDoc comment, if any. */
   doc?: string;
+  /** True when the declaration has a body that its signature leaves out (one-line bodies included). */
+  hasBody?: boolean;
   /** For methods: the class they belong to. */
   parent?: string;
 }

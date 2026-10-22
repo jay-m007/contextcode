@@ -30,6 +30,8 @@ export interface PackOptions extends SearchOptions {
   focusedSymbols?: number;
   /** "breadth" (default): a focused view of many files first, then upgrade. "depth": the richest view of each file in turn. */
   strategy?: "breadth" | "depth";
+  /** The output format the budget is measured in (default "markdown"; XML escaping makes it larger). */
+  format?: Format;
   /** Manual choices from the user: a fixed detail level for a file, or "off" to leave it out. */
   overrides?: Record<string, Tier | "off">;
   /** Prefix each line with its line number (default false). */
@@ -140,16 +142,37 @@ export function packRanked(p: Prepared, query: string, ranked: Ranked[], options
     }
   }
 
-  const files: PackedFile[] = choices
-    .filter((c) => c.tier)
-    .map((c) => ({ path: c.r.path, tier: c.tier!, tokens: c.cost[c.tier!], score: c.r.score, reasons: c.r.reasons, content: c.render[c.tier!] }));
-  return {
-    query,
-    budget,
-    tokens: used,
-    files,
-    omitted: choices.filter((c) => !c.tier).map((c) => ({ path: c.r.path, score: c.r.score })),
+  // The estimates above leave out the exact header, per-file summary lines and
+  // (for XML) escaping. Measure the real output, and while it's over budget,
+  // step the lowest-ranked automatic pick down a level (full -> focused ->
+  // outline -> left out). The user's fixed choices are never touched.
+  const fmt = options.format ?? "markdown";
+  const build = (): Pack => {
+    const files: PackedFile[] = choices
+      .filter((c) => c.tier)
+      .map((c) => ({ path: c.r.path, tier: c.tier!, tokens: c.cost[c.tier!], score: c.r.score, reasons: c.r.reasons, content: c.render[c.tier!] }));
+    const pk: Pack = { query, budget, tokens: 0, files, omitted: choices.filter((c) => !c.tier).map((c) => ({ path: c.r.path, score: c.r.score })) };
+    // The header states the token count, which changes the text's length: settle it.
+    for (let i = 0; i < 3 && files.length; i++) {
+      const t = estimateTokens(format(pk, fmt));
+      if (t === pk.tokens) break;
+      pk.tokens = t;
+    }
+    return pk;
   };
+  let result = build();
+  const forced = (c: Choice) => !!overrides[c.r.path] && overrides[c.r.path] !== "off";
+  while (result.tokens > budget) {
+    const victim = [...choices].reverse().find((c) => c.tier && !forced(c));
+    if (!victim) break; // only the user's own choices are left: report the overflow
+    const i = ORDER.indexOf(victim.tier!);
+    let next: Tier | null = ORDER[i + 1] ?? null;
+    if (next === "focused" && victim.render.focused === victim.render.full) next = "outline";
+    if (next === "outline" && !victim.render.outline.trim()) next = null;
+    victim.tier = next;
+    result = build();
+  }
+  return result;
 }
 
 /** Which symbols a focused rendering shows in full. */
@@ -205,7 +228,7 @@ export function renderFocused(file: IndexedFile, show: Set<string>, options: { l
   const signature = (s: CodeSymbol, indent = "") => {
     gap(s.startLine);
     const sig = s.signature.split("\n").map((l) => indent + l);
-    const hasBody = s.endLine > s.startLine && file.kind !== "doc" && !isTypeLike(s);
+    const hasBody = file.kind !== "doc" && !isTypeLike(s) && (s.hasBody ?? s.endLine > s.startLine);
     if (hasBody) sig[sig.length - 1] += s.kind === "variable" ? " …" : " { … }";
     out.push(...sig);
     cursor = s.endLine + 1; // the body is marked by "{ … }", not by an omitted-lines note
@@ -228,10 +251,12 @@ export function renderFocused(file: IndexedFile, show: Set<string>, options: { l
     } else if (shownMethods.length) {
       // The class header, its matching methods in full, the others as signatures, then the closing brace.
       signatureLine(s);
+      const leanClass = methods.length > 12;
       for (const m of methods) {
         if (show.has(symbolId(m))) takeCapped(m.startLine, m.endLine);
-        else signature(m, "  ");
+        else if (!leanClass) signature(m, "  ");
       }
+
       if (s.endLine >= cursor) take(s.endLine, s.endLine);
     } else if (!lean || (s.exported && file.kind !== "doc")) {
       if (lean) {
@@ -278,7 +303,7 @@ export function renderOutline(file: IndexedFile): string {
   for (const s of file.symbols) {
     const indent = s.parent ? "  " : "";
     const sig = s.signature.split("\n");
-    const body = s.endLine > s.startLine && !isTypeLike(s) && s.kind !== "variable" ? (s.kind === "class" ? " {" : " { … }") : "";
+    const body = s.kind === "class" ? " {" : !isTypeLike(s) && s.kind !== "variable" && (s.hasBody ?? s.endLine > s.startLine) ? " { … }" : "";
     out.push(...sig.slice(0, -1).map((l) => indent + l), indent + sig[sig.length - 1] + body);
     if (s.kind === "class") {
       const hasMethods = file.symbols.some((m) => m.parent === s.name);
@@ -326,7 +351,8 @@ export function format(pk: Pack, fmt: Format = "markdown"): string {
   const map = pk.files.map((f) => `- \`${f.path}\` (${f.tier}, ~${f.tokens} tokens): ${explain(f.reasons)}`).join("\n");
   const bodies = pk.files
     .map((f) => {
-      const fence = f.content.includes("```") ? "````" : "```";
+      const longest = Math.max(0, ...(f.content.match(/`+/g) ?? []).map((m) => m.length));
+      const fence = "`".repeat(Math.max(3, longest + 1));
       return `## ${f.path} (${f.tier})\n${fence}${languageOf(f.path)}\n${f.content}\n${fence}`;
     })
     .join("\n\n");

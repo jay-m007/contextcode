@@ -4,7 +4,17 @@ const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object
 
 /** Checks a JSON value is a ContextCode index before the app trusts its shape. */
 export function isIndex(x: unknown): x is Index {
-  if (!isObj(x) || !isObj(x.meta) || x.meta.tool !== "contextcode" || !Array.isArray(x.files)) return false;
+  if (!isObj(x) || !isObj(x.meta) || x.meta.tool !== "contextcode" || typeof x.meta.root !== "string" || !Array.isArray(x.files)) return false;
+  const isSymbol = (s: unknown) =>
+    isObj(s) &&
+    typeof s.name === "string" &&
+    typeof s.kind === "string" &&
+    typeof s.signature === "string" &&
+    typeof s.startLine === "number" &&
+    typeof s.endLine === "number" &&
+    (s.doc === undefined || typeof s.doc === "string") &&
+    (s.parent === undefined || typeof s.parent === "string");
+  const strings = (a: unknown) => Array.isArray(a) && a.every((x) => typeof x === "string");
   return (x.files as unknown[]).every(
     (f) =>
       isObj(f) &&
@@ -13,8 +23,9 @@ export function isIndex(x: unknown): x is Index {
       typeof f.tokens === "number" &&
       (f.kind === "code" || f.kind === "doc") &&
       Array.isArray(f.symbols) &&
-      Array.isArray(f.imports) &&
-      Array.isArray(f.importedBy),
+      f.symbols.every(isSymbol) &&
+      strings(f.imports) &&
+      strings(f.importedBy),
   );
 }
 

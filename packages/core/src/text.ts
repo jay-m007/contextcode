@@ -42,11 +42,11 @@ export function stem(w: string): string {
   else if (s.endsWith("es") && /(sh|ch|x|z|ss)es$/.test(s)) s = s.slice(0, -2);
   else if (s.endsWith("s") && !/(ss|us|is)$/.test(s)) s = s.slice(0, -1);
 
-  if (s.endsWith("ations") || s.endsWith("ation")) s = s.replace(/ations?$/, "at"); //   rotation -> rotat
+  if (/ations?$/.test(s) && s.replace(/ations?$/, "").length >= 3) s = s.replace(/ations?$/, "at"); // rotation -> rotat
   else if (/tions?$/.test(s) && s.length > 6) s = s.replace(/ions?$/, ""); //             selection -> select
   else if (s.endsWith("ing") && s.length > 5) s = trimDouble(s.slice(0, -3)); //            dragging -> drag
-  else if (s.endsWith("ed") && s.length > 4) s = trimDouble(s.slice(0, -2)); //             rotated -> rotat
-  if (s.endsWith("e") && s.length > 4) s = s.slice(0, -1); //                               rotate -> rotat
+  else if (s.endsWith("ed") && s.length > 5) s = trimDouble(s.slice(0, -2)); //             rotated -> rotat
+  if (s.endsWith("e") && s.length > 5) s = s.slice(0, -1); //                               rotate -> rotat
   return s;
 }
 
@@ -65,7 +65,7 @@ const CANONICAL: [RegExp, string][] = [
   [/^(button|btn)$/, "button"],
   [/^(navigat|nav)$/, "nav"],
   [/^(image|img)$/, "image"],
-  [/^(repositor|repo)$/, "repo"],
+  [/^(repositor|repo$)/, "repo"],
   [/^(request|req)$/, "request"],
   [/^(respons|res)$/, "response"],
   [/^(error|err)$/, "error"],
@@ -73,17 +73,18 @@ const CANONICAL: [RegExp, string][] = [
   [/^(argument|args?$)/, "arg"],
   [/^(signin|sign-in|logon)$/, "login"],
   [/^(signout|logoff)$/, "logout"],
-  [/^(signup|register|registrat)/, "signup"],
+  [/^(signup|registrat)/, "signup"],
   [/^(subscript|subscrib)/, "subscription"],
   [/^(payment|checkout|billing)$/, "billing"],
-  [/^(permission|perm|role)$/, "permission"],
+  [/^(permission|perm)$/, "permission"],
   [/^(initializ|initialis|init)$/, "init"],
   [/^(middleware|interceptor)$/, "middleware"],
 ];
 
-function canonical(w: string): string {
+/** The canonical form if a rule matches, else null. */
+function canonical(w: string): string | null {
   for (const [re, to] of CANONICAL) if (re.test(w)) return to;
-  return w;
+  return null;
 }
 
 function trimDouble(w: string): string {
@@ -124,9 +125,10 @@ function wordTerms(raw: string): string[] {
   }
   for (const p of parts) {
     if (p.length < 2 || p.length > 30 || STOPWORDS.has(p) || /^\d+$/.test(p)) continue;
-    // Map whole words first ("database" -> "db"), then stems ("authenticated" -> "authent" -> "auth").
-    const whole = canonical(p);
-    out.push(whole !== p ? whole : canonical(stem(p)));
+    // Map whole words first ("database" -> "db", "image" -> "image"), then stems
+    // ("authenticated" -> "authent" -> "auth"); otherwise the plain stem.
+    const st = stem(p);
+    out.push(canonical(p) ?? canonical(st) ?? st);
   }
   return out;
 }

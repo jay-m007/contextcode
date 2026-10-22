@@ -98,3 +98,15 @@ describe("cli ask", () => {
     expect(url).toBe("http://local/v1/chat/completions");
   });
 });
+
+describe("cli output through a pipe", () => {
+  it("is not cut off when the reader is slow", async () => {
+    const { spawnSync } = await import("node:child_process");
+    const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist", "index.js");
+    const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+    const res = spawnSync("bash", ["-c", `node "${cli}" pack "how is the budget packed" "${repo}/packages" -b 32000 | (sleep 1; wc -c)`], { encoding: "utf8" });
+    const viaFile = spawnSync("node", [cli, "pack", "how is the budget packed", `${repo}/packages`, "-b", "32000"], { encoding: "utf8", maxBuffer: 1 << 24 });
+    expect(Number(res.stdout.trim())).toBe(Buffer.byteLength(viaFile.stdout));
+    expect(Buffer.byteLength(viaFile.stdout)).toBeGreaterThan(70_000);
+  });
+});

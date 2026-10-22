@@ -77,19 +77,19 @@ export async function ask(pk: Pack, options: AskOptions): Promise<AskResult> {
   let answer = "";
   let usage: AskResult["usage"];
   let usedModel = model;
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
+  const handle = (line: string) => {
       const t = line.trim();
-      if (!t.startsWith("data:")) continue;
+      if (!t.startsWith("data:")) return;
       const payload = t.slice(5).trim();
-      if (payload === "[DONE]") continue;
+      if (payload === "[DONE]") return;
+      let chunk: { model?: string; error?: { message?: string }; choices?: { delta?: { content?: string } }[]; usage?: { prompt_tokens: number; completion_tokens: number } };
       try {
-        const chunk = JSON.parse(payload) as { model?: string; choices?: { delta?: { content?: string } }[]; usage?: { prompt_tokens: number; completion_tokens: number } };
+        chunk = JSON.parse(payload);
+      } catch {
+        return; // a keep-alive or non-JSON line
+      }
+      if (chunk.error) throw new Error(`The model API reported an error: ${(chunk.error.message ?? "unknown").slice(0, 300)}`);
+      {
         if (chunk.model) usedModel = chunk.model;
         const piece = chunk.choices?.[0]?.delta?.content;
         if (piece) {
@@ -97,10 +97,17 @@ export async function ask(pk: Pack, options: AskOptions): Promise<AskResult> {
           options.onToken!(piece);
         }
         if (chunk.usage) usage = { prompt: chunk.usage.prompt_tokens, completion: chunk.usage.completion_tokens };
-      } catch {
-        /* a partial or non-JSON keep-alive line: skip it */
       }
-    }
+  };
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) handle(line);
   }
+  buffer += decoder.decode();
+  if (buffer.trim()) handle(buffer); // a last event with no trailing newline
   return { answer, model: usedModel, usage };
 }

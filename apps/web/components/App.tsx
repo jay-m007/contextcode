@@ -67,8 +67,8 @@ export function App() {
     [prepared, query, pinned],
   );
   const pk = useMemo(
-    () => (prepared ? packRanked(prepared, query, ranked, { budget, overrides }) : null),
-    [prepared, query, ranked, budget, overrides],
+    () => (prepared ? packRanked(prepared, query, ranked, { budget, overrides, format: fmt }) : null),
+    [prepared, query, ranked, budget, overrides, fmt],
   );
   const output = useMemo(() => (pk && pk.files.length ? format(pk, fmt) : ""), [pk, fmt]);
   const qTerms = useMemo(() => new Set(queryTerms(query)), [query]);

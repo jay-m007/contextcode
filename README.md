@@ -115,10 +115,10 @@ Each ranked file can be included at three levels of detail:
 | Level | What's included |
 |---|---|
 | **full** | The whole file |
-| **focused** | The imports, the declarations that match the question in full (very long ones cut at 80 lines), other declarations as one-line signatures, with every gap marked `// … lines 40–88 omitted` |
+| **focused** | The imports, the declarations that match the question in full (very long ones cut at 80 lines), other declarations as signatures (`{ … }` marks a left-out body), and skipped stretches marked `// … lines 40–88 omitted` |
 | **outline** | Signatures only (for big files, one line per exported declaration) |
 
-Packing is **breadth first**: in ranked order, small files are included whole and others focused, falling back to an outline. Then any leftover budget upgrades earlier files to full. No file may take more than 40% of the budget (60% for a file you named with `--focus`). Tokens are estimated as characters ÷ 3.6, deliberately a little pessimistic.
+Packing is **breadth first**: in ranked order, small files are included whole and others focused, falling back to an outline. Then any leftover budget upgrades earlier files to full. No file may take more than 40% of the budget (60% for a file you named with `--focus`). Finally the real output (header, summaries, and XML escaping included) is measured, and if it's over, the lowest-ranked automatic picks are stepped down until it fits. Tokens are estimated as characters ÷ 3.6, deliberately a little pessimistic.
 
 ## How well it works
 
@@ -132,22 +132,22 @@ At an 8,000-token budget:
 
 | Method | Answer files in top 5 | In top 10 | MRR | In the packed context | …with their code |
 |---|---:|---:|---:|---:|---:|
-| contextcode | 65% | 87% | 0.67 | **85%** | **81%** |
-| keywords | 64% | 86% | 0.71 | 85% | 82% |
+| contextcode | 65% | 86% | 0.65 | **83%** | **81%** |
+| keywords | 64% | 86% | 0.71 | 83% | 82% |
 | grep | 47% | 64% | 0.41 | 42% | 42% |
 
 Answer files in the packed context, by budget:
 
 | Budget | contextcode | keywords | grep |
 |---|---:|---:|---:|
-| 4,000 | 77% | 80% | 37% |
-| 8,000 | 85% | 85% | 42% |
-| 16,000 | 91% | 91% | 62% |
+| 4,000 | 78% | 76% | 37% |
+| 8,000 | 83% | 83% | 42% |
+| 16,000 | 92% | 92% | 62% |
 
 What this shows, honestly:
 
 - Ranking and packing roughly **double** what reaches the model compared with grep-and-paste at the same budget. Summarising files (focused and outline views) instead of pasting them whole is what makes the difference on the large repository (excalidraw, 748 files).
-- The **import-graph boost is roughly neutral** on this benchmark: slightly better recall in the top 10, slightly worse MRR. Most answer files here contain the question's words, which keywords already find. The graph's real job is bringing in neighbours (the types and helpers an answer file uses), which this benchmark doesn't score. It stays on by default, and `--no-graph` turns it off.
+- The **import-graph boost is roughly neutral** on this benchmark: the same recall in the top 10 and in the pack, slightly worse MRR. Most answer files here contain the question's words, which keywords already find. The graph's real job is bringing in neighbours (the types and helpers an answer file uses), which this benchmark doesn't score. It stays on by default, and `--no-graph` turns it off.
 - The ranking was tuned on these same questions, so the numbers are indicative, not a held-out result.
 
 Reproduce with `contextcode eval bench/commerce.json ../commerce` (see `bench/README.md` for the exact commits).
@@ -212,7 +212,7 @@ bench/                  # benchmark questions
 ## Development
 
 ```bash
-npm test             # 34 tests (build first: the CLI tests use the built core)
+npm test             # 44 tests (build first: the CLI tests use the built core)
 npm run typecheck
 npm run build        # core and CLI
 npm run build:web    # static web UI in apps/web/out
