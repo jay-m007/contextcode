@@ -5,3 +5,5 @@ export { extractSymbols, extractSections } from "./symbols.js";
 export { extractImports } from "./extract.js";
 export { evaluate, grepRank, METHODS } from "./evaluate.js";
 export type { Bench, BenchCase, BenchResult, CaseResult, Method, MethodSummary } from "./evaluate.js";
+export { ask, buildMessages, SYSTEM_PROMPT } from "./ask.js";
+export type { AskOptions, AskResult } from "./ask.js";

@@ -1,6 +1,11 @@
 import ts from "typescript";
 import type { ImportKind, RawImport } from "./types.js";
 
+/** Parses a JS/TS file once; the result can be shared by extractImports and extractSymbols. */
+export function parse(fileName: string, text: string): ts.SourceFile {
+  return ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, scriptKindFor(fileName));
+}
+
 /** Picks the TypeScript parser mode from the file extension. */
 function scriptKindFor(fileName: string): ts.ScriptKind {
   if (fileName.endsWith(".tsx")) return ts.ScriptKind.TSX;
@@ -18,8 +23,8 @@ function scriptKindFor(fileName: string): ts.ScriptKind {
  * of using regular expressions means comments, strings that merely *look* like
  * imports, and unusual formatting cannot fool us.
  */
-export function extractImports(fileName: string, sourceText: string): RawImport[] {
-  const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true, scriptKindFor(fileName));
+export function extractImports(fileName: string, sourceText: string, parsed?: ts.SourceFile): RawImport[] {
+  const sf = parsed ?? parse(fileName, sourceText);
   const found: RawImport[] = [];
   // If the file defines its own `require` (variable, function or parameter),
   // calls to it are not CommonJS imports. A whole-file check is a deliberate

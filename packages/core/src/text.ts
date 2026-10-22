@@ -99,19 +99,34 @@ export function terms(text: string): string[] {
   const out: string[] = [];
   const words = text.match(/[A-Za-z_$][A-Za-z0-9_$-]*/g) ?? [];
   for (const raw of words) {
-    const word = raw.replace(/^[$_-]+|[$_-]+$/g, "");
-    if (!word) continue;
-    const parts = splitIdentifier(word);
-    if (parts.length > 1) {
-      const whole = parts.join("");
-      if (whole.length >= 4 && whole.length <= 40) out.push(whole);
+    let t = cache.get(raw);
+    if (!t) {
+      t = wordTerms(raw);
+      if (cache.size > 200_000) cache.clear(); // bound memory on huge repositories
+      cache.set(raw, t);
     }
-    for (const p of parts) {
-      if (p.length < 2 || p.length > 30 || STOPWORDS.has(p) || /^\d+$/.test(p)) continue;
-      // Map whole words first ("database" -> "db"), then stems ("authenticated" -> "authent" -> "auth").
-      const whole = canonical(p);
-      out.push(whole !== p ? whole : canonical(stem(p)));
-    }
+    for (const x of t) out.push(x);
+  }
+  return out;
+}
+
+/** Real code repeats the same identifiers constantly, so each word's terms are worked out once. */
+const cache = new Map<string, string[]>();
+
+function wordTerms(raw: string): string[] {
+  const out: string[] = [];
+  const word = raw.replace(/^[$_-]+|[$_-]+$/g, "");
+  if (!word) return out;
+  const parts = splitIdentifier(word);
+  if (parts.length > 1) {
+    const whole = parts.join("");
+    if (whole.length >= 4 && whole.length <= 40) out.push(whole);
+  }
+  for (const p of parts) {
+    if (p.length < 2 || p.length > 30 || STOPWORDS.has(p) || /^\d+$/.test(p)) continue;
+    // Map whole words first ("database" -> "db"), then stems ("authenticated" -> "authent" -> "auth").
+    const whole = canonical(p);
+    out.push(whole !== p ? whole : canonical(stem(p)));
   }
   return out;
 }

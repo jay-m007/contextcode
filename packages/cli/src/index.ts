@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildIndex, evaluate, explain, format, pack, prepare, search, VERSION, type Bench, type Format, type Index } from "@contextcode/core";
+import { ask, buildIndex, evaluate, explain, format, pack, prepare, search, VERSION, type Bench, type Format, type Index } from "@contextcode/core";
 
 const HELP = `contextcode v${VERSION}: pick the right code context for an AI assistant
 
@@ -10,6 +10,7 @@ Usage
   contextcode pack   "<question>" [path] [options]   Print the packed context for a question
   contextcode search "<question>" [path] [options]   Show the ranked files and why
   contextcode index  [path] [-o file]                Save an index for the web UI
+  contextcode ask    "<question>" [path] [options]   Answer the question with an AI model, using the packed context
   contextcode eval   <bench.json> [path] [-b n]      Measure retrieval quality on a benchmark
 
 [path] is a project folder (default: current folder) or an index file made by "contextcode index".
@@ -22,7 +23,11 @@ Options
   -n, --line-numbers       Prefix code lines with their line numbers
       --limit <n>          Results shown by search (default: 15)
       --no-docs            Skip Markdown files
+      --no-graph           Rank by keywords only, without the import-graph boost
       --exclude <glob>     Skip matching files. Repeatable
+      --model <name>       ask: model name (default: $OPENAI_MODEL or gpt-4o-mini)
+      --base-url <url>     ask: any OpenAI-compatible API (default: $OPENAI_BASE_URL or OpenAI)
+      --show-context       ask: also print the context that was sent
   -h, --help               Show this help
   -v, --version            Show the version
 
@@ -30,6 +35,9 @@ Examples
   contextcode pack "how does login work?" ./my-app -b 6000 > context.md
   contextcode search "where are payments handled" .
   contextcode pack "why does saving fail" -f src/lib/save.ts --format xml
+  OPENAI_API_KEY=sk-... contextcode ask "where is the session cookie set?" .
+
+ask reads the API key from $OPENAI_API_KEY. Only the packed context is sent, never the whole project.
 `;
 
 interface Args {
@@ -43,12 +51,16 @@ interface Args {
   limit: number;
   docs: boolean;
   exclude: string[];
+  model?: string;
+  baseUrl?: string;
+  showContext: boolean;
+  graph: boolean;
 }
 
 class UsageError extends Error {}
 
 export function parseArgs(argv: string[]): Args {
-  const args: Args = { command: "", positional: [], budget: 8000, focus: [], format: "markdown", lineNumbers: false, limit: 15, docs: true, exclude: [] };
+  const args: Args = { command: "", positional: [], budget: 8000, focus: [], format: "markdown", lineNumbers: false, limit: 15, docs: true, exclude: [], showContext: false, graph: true };
   const expanded = argv.flatMap((a) => (/^--[a-z-]+=/.test(a) ? [a.slice(0, a.indexOf("=")), a.slice(a.indexOf("=") + 1)] : [a]));
   const value = (i: number, flag: string) => {
     const v = expanded[i + 1];
@@ -77,6 +89,10 @@ export function parseArgs(argv: string[]): Args {
       case "--limit": args.limit = int(value(i, a), a); i++; break;
       case "--no-docs": args.docs = false; break;
       case "--exclude": args.exclude.push(value(i, a)); i++; break;
+      case "--model": args.model = value(i, a); i++; break;
+      case "--base-url": args.baseUrl = value(i, a); i++; break;
+      case "--show-context": args.showContext = true; break;
+      case "--no-graph": args.graph = false; break;
       case "-h": case "--help": args.command = "help"; break;
       case "-v": case "--version": args.command = "version"; break;
       default:
@@ -142,6 +158,29 @@ export async function main(argv: string[]): Promise<number> {
         info(`Indexed ${index.files.length} files in ${index.meta.durationMs} ms → ${out}`);
         return 0;
       }
+      case "ask": {
+        const [question, target = "."] = args.positional;
+        if (!question) throw new UsageError('ask needs a question, e.g. contextcode ask "how does login work?"');
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) throw new UsageError("ask needs an API key in OPENAI_API_KEY (any OpenAI-compatible provider works; set --base-url for others)");
+        const index = await loadIndex(path.resolve(target), args);
+        if (index.files.length === 0) throw new UsageError(`No JavaScript or TypeScript files found in ${index.meta.root}`);
+        const pk = pack(prepare(index), question, { focus: normaliseFocus(index, args.focus), budget: args.budget, lineNumbers: true, graphWeight: args.graph ? undefined : 0 });
+        if (pk.files.length === 0) throw new UsageError("Nothing in the project matches the question. Try other words or name a file with --focus.");
+        if (args.showContext) write(format(pk, "markdown") + "\n---\n");
+        info(`Sending ${pk.files.length} files (~${pk.tokens} tokens) to ${args.model ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini"}…\n`);
+        const res = await ask(pk, {
+          apiKey,
+          model: args.model ?? process.env.OPENAI_MODEL,
+          baseUrl: args.baseUrl ?? process.env.OPENAI_BASE_URL,
+          onToken: (t) => process.stdout.write(t),
+        });
+        process.stdout.write("\n");
+        info(`\nContext: ${pk.files.map((f) => `${f.path} (${f.tier})`).join(", ")}`);
+        if (res.usage) info(`Tokens: ${res.usage.prompt} in, ${res.usage.completion} out (${res.model}).`);
+        info("Answers are AI-generated from the context above; check the cited lines before relying on them.");
+        return 0;
+      }
       case "pack":
       case "search": {
         const [question, target = "."] = args.positional;
@@ -152,7 +191,7 @@ export async function main(argv: string[]): Promise<number> {
         const prepared = prepare(index);
 
         if (args.command === "search") {
-          const ranked = search(prepared, question, { focus, limit: args.limit });
+          const ranked = search(prepared, question, { focus, limit: args.limit, graphWeight: args.graph ? undefined : 0 });
           if (args.format === "json") {
             write(JSON.stringify(ranked, null, 2), args.out);
           } else {
@@ -165,7 +204,7 @@ export async function main(argv: string[]): Promise<number> {
           return 0;
         }
 
-        const pk = pack(prepared, question, { focus, budget: args.budget, lineNumbers: args.lineNumbers });
+        const pk = pack(prepared, question, { focus, budget: args.budget, lineNumbers: args.lineNumbers, graphWeight: args.graph ? undefined : 0 });
         write(format(pk, args.format), args.out);
         const tiers = ["full", "focused", "outline"].map((t) => `${pk.files.filter((f) => f.tier === t).length} ${t}`).join(", ");
         info(`Packed ${pk.files.length} of ${index.files.length} files (${tiers}) into ~${pk.tokens}/${pk.budget} tokens${args.out ? ` → ${args.out}` : ""}.`);

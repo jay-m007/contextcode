@@ -110,6 +110,9 @@ export function queryTerms(query: string): string[] {
 /** Ranks every file for a question. */
 export function search(p: Prepared, query: string, options: SearchOptions = {}): Ranked[] {
   const qTerms = queryTerms(query);
+  // Reasons show the user's own words ("score"), not the stems used for matching ("scor").
+  const shown = new Map<string, string>();
+  for (const w of query.match(/[A-Za-z_$][A-Za-z0-9_$-]*/g) ?? []) for (const t of terms(w)) if (!shown.has(t)) shown.set(t, w.toLowerCase());
   const focus = (options.focus ?? []).filter((f) => p.byPath.has(f));
   const graphWeight = options.graphWeight ?? 0.3;
   const n = p.files.length;
@@ -167,7 +170,7 @@ export function search(p: Prepared, query: string, options: SearchOptions = {}):
 
     const reasons: Reason[] = [];
     if (isFocus) reasons.push({ kind: "focus", detail: "you asked about this file" });
-    if (matched[i].length) reasons.push({ kind: "match", detail: matched[i].join(", ") });
+    if (matched[i].length) reasons.push({ kind: "match", detail: [...new Set(matched[i].map((t) => shown.get(t) ?? t))].join(", ") });
     const f = p.files[i];
     const imported = f.imports.find((t) => seedSet.has(p.byPath.get(t)!) || focus.includes(t));
     const importer = f.importedBy.find((t) => seedSet.has(p.byPath.get(t)!) || focus.includes(t));

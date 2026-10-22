@@ -73,3 +73,28 @@ describe("cli", () => {
     expect((await run(["frobnicate"])).err).toContain('Unknown command "frobnicate"');
   });
 });
+
+describe("cli ask", () => {
+  it("needs an API key", async () => {
+    const saved = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    const r = await run(["ask", "how does login work", fixture]);
+    if (saved) process.env.OPENAI_API_KEY = saved;
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("OPENAI_API_KEY");
+  });
+
+  it("streams the answer and lists the context it used", async () => {
+    process.env.OPENAI_API_KEY = "test";
+    const body = 'data: {"choices":[{"delta":{"content":"See src/lib/auth.ts:7."}}]}\n\ndata: [DONE]\n\n';
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body, { status: 200 }));
+    const r = await run(["ask", "how are passwords checked", fixture, "--base-url", "http://local/v1", "--model", "tiny"]);
+    const url = fetchSpy.mock.calls[0]?.[0];
+    fetchSpy.mockRestore();
+    delete process.env.OPENAI_API_KEY;
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("See src/lib/auth.ts:7.");
+    expect(r.err).toMatch(/Context: .*src\/lib\/auth\.ts/);
+    expect(url).toBe("http://local/v1/chat/completions");
+  });
+});

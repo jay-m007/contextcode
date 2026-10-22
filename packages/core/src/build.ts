@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import fg from "fast-glob";
-import { extractImports } from "./extract.js";
+import { extractImports, parse } from "./extract.js";
 import { createResolver, packageName, toPosix } from "./resolve.js";
 import { extractSections, extractSymbols } from "./symbols.js";
 import { estimateTokens } from "./text.js";
@@ -78,8 +78,9 @@ export async function buildIndex(rootDir: string, options: BuildOptions = {}): P
 
     const imports = new Set<string>();
     const packages = new Set<string>();
-    if (!isDoc) {
-      for (const imp of extractImports(abs, text)) {
+    const sf = isDoc ? undefined : parse(abs, text);
+    if (sf) {
+      for (const imp of extractImports(abs, text, sf)) {
         const res = resolver.resolve(imp.specifier, abs);
         if (res.type === "internal") {
           const target = idByReal.get(realpath(res.file));
@@ -92,7 +93,7 @@ export async function buildIndex(rootDir: string, options: BuildOptions = {}): P
 
     let symbols: IndexedFile["symbols"] = [];
     try {
-      symbols = isDoc ? extractSections(text) : extractSymbols(abs, text);
+      symbols = isDoc ? extractSections(text) : extractSymbols(abs, text, sf);
     } catch {
       symbols = []; // a file the parser can't handle is still searchable as text
     }

@@ -16,8 +16,8 @@ function scriptKindFor(fileName: string): ts.ScriptKind {
  * function's name, parameters and return type, without the bodies, at a
  * fraction of the tokens.
  */
-export function extractSymbols(fileName: string, text: string): CodeSymbol[] {
-  const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, scriptKindFor(fileName));
+export function extractSymbols(fileName: string, text: string, parsed?: ts.SourceFile): CodeSymbol[] {
+  const sf = parsed ?? ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true, scriptKindFor(fileName));
   const out: CodeSymbol[] = [];
   const line = (pos: number) => sf.getLineAndCharacterOfPosition(pos).line + 1;
 
