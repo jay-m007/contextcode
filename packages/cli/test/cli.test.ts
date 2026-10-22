@@ -100,8 +100,10 @@ describe("cli ask", () => {
 });
 
 describe("cli output through a pipe", () => {
-  it("is not cut off when the reader is slow", async () => {
-    // Plain Node instead of a shell pipeline, so the test behaves the same on Windows.
+  it("arrives complete at a slow reader", async () => {
+    // A smoke test in plain Node, so it runs the same on Windows. Note: on Linux, Node writes
+    // to pipes synchronously, so this can't reproduce the old truncation there; the fix
+    // (setting process.exitCode instead of calling process.exit) is what prevents it.
     const { spawn, spawnSync } = await import("node:child_process");
     const cli = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "dist", "index.js");
     const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -110,13 +112,14 @@ describe("cli output through a pipe", () => {
     const expected = Buffer.byteLength(spawnSync(process.execPath, args, { encoding: "utf8", maxBuffer: 1 << 24 }).stdout);
     expect(expected).toBeGreaterThan(70_000);
 
-    // A slow reader: don't read the pipe for a second, so the CLI's writes back up.
+    // A slow reader: pause after every chunk, so the CLI's writes back up in the pipe.
     const child = spawn(process.execPath, args, { stdio: ["ignore", "pipe", "ignore"] });
-    child.stdout.pause();
-    await new Promise((r) => setTimeout(r, 1000));
     let received = 0;
-    child.stdout.on("data", (d: Buffer) => (received += d.length));
-    child.stdout.resume();
+    child.stdout.on("data", (d: Buffer) => {
+      received += d.length;
+      child.stdout.pause();
+      setTimeout(() => child.stdout.resume(), 25);
+    });
     await new Promise((r) => child.on("close", r));
     expect(received).toBe(expected);
   });
