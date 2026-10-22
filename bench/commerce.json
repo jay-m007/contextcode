@@ -1,0 +1,17 @@
+{
+  "name": "commerce",
+  "repo": "https://github.com/vercel/commerce",
+  "commit": "f7521d57d29f0eb3d23c1399cf9bb299d61fcd21",
+  "cases": [
+    { "q": "how is an item added to the cart", "relevant": ["components/cart/actions.ts", "components/cart/add-to-cart.tsx", "lib/shopify/index.ts", "lib/shopify/mutations/cart.ts"] },
+    { "q": "how does cache revalidation work when shopify data changes", "relevant": ["app/api/revalidate/route.ts", "lib/shopify/index.ts"] },
+    { "q": "how is a product page rendered", "relevant": ["app/product/[handle]/page.tsx", "lib/shopify/queries/product.ts", "components/product/gallery.tsx", "components/product/product-description.tsx"] },
+    { "q": "how is the sitemap generated", "relevant": ["app/sitemap.ts"] },
+    { "q": "how does the search page sort products", "relevant": ["app/search/page.tsx", "lib/constants.ts", "components/layout/search/filter/index.tsx"] },
+    { "q": "how are product variants and options selected", "relevant": ["components/product/variant-selector.tsx"] },
+    { "q": "how is the cart state kept on the client", "relevant": ["components/cart/cart-context.tsx", "components/cart/modal.tsx"] },
+    { "q": "how are graphql requests sent to shopify", "relevant": ["lib/shopify/index.ts"] },
+    { "q": "how is the quantity of a cart item changed or removed", "relevant": ["components/cart/edit-item-quantity-button.tsx", "components/cart/delete-item-button.tsx", "components/cart/actions.ts"] },
+    { "q": "how is the navigation menu loaded", "relevant": ["components/layout/navbar/index.tsx", "lib/shopify/queries/menu.ts"] }
+  ]
+}

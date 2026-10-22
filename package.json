@@ -1,0 +1,26 @@
+{
+  "name": "contextcode",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pick the right code context for AI assistants: ranks a codebase's files for a question and packs them into a token budget",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @contextcode/core && npm run build -w @contextcode/cli",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/core --noEmit && tsc -p packages/cli --noEmit",
+    "cc": "node packages/cli/dist/index.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "author": "Jay Maurya (jay-m007)"
+}

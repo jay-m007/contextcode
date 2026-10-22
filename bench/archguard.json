@@ -1,0 +1,17 @@
+{
+  "name": "archguard",
+  "repo": "https://github.com/jay-m007/archguard",
+  "commit": "d412ef12c23c32ba57e4304cfd92e6d23377e21a",
+  "cases": [
+    { "q": "how are circular dependencies detected", "relevant": ["packages/core/src/analyzers/cycles.ts"] },
+    { "q": "how is the health score calculated", "relevant": ["packages/core/src/score.ts"] },
+    { "q": "how does the github action post a comment on the pull request", "relevant": ["action/src/github.ts", "action/src/run.ts", "packages/core/src/markdown.ts"] },
+    { "q": "how are tsconfig path aliases resolved", "relevant": ["packages/core/src/resolve.ts"] },
+    { "q": "how is the history of commits analysed", "relevant": ["packages/core/src/history.ts"] },
+    { "q": "how are layer rules checked", "relevant": ["packages/core/src/analyzers/layers.ts", "packages/core/src/config.ts"] },
+    { "q": "how does the dashboard lay out the dependency graph", "relevant": ["apps/dashboard/lib/layout.ts", "apps/dashboard/components/GraphView.tsx"] },
+    { "q": "why would a file be reported as unused", "relevant": ["packages/core/src/analyzers/metrics.ts", "packages/core/src/config.ts"] },
+    { "q": "how are AI explanations generated for violations", "relevant": ["packages/core/src/llm.ts"] },
+    { "q": "how are imports extracted from source files", "relevant": ["packages/core/src/extract.ts"] }
+  ]
+}

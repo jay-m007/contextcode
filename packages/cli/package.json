@@ -1,0 +1,10 @@
+{
+  "name": "@contextcode/cli",
+  "version": "0.1.0",
+  "description": "contextcode command-line tool",
+  "type": "module",
+  "bin": { "contextcode": "dist/index.js" },
+  "scripts": { "build": "tsc -p ." },
+  "dependencies": { "@contextcode/core": "0.1.0" },
+  "license": "MIT"
+}

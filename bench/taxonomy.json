@@ -1,0 +1,17 @@
+{
+  "name": "taxonomy",
+  "repo": "https://github.com/shadcn-ui/taxonomy",
+  "commit": "298a8857c7128a0d121e7f699dfd729f23b3966d",
+  "cases": [
+    { "q": "how does user authentication and login work", "relevant": ["lib/auth.ts", "components/user-auth-form.tsx", "app/(auth)/login/page.tsx", "middleware.ts"] },
+    { "q": "how are stripe subscriptions and billing handled", "relevant": ["lib/stripe.ts", "lib/subscription.ts", "app/api/webhooks/stripe/route.ts", "app/api/users/stripe/route.ts", "components/billing-form.tsx"] },
+    { "q": "how is a new post created", "relevant": ["app/api/posts/route.ts", "components/post-create-button.tsx"] },
+    { "q": "where is the table of contents for docs generated", "relevant": ["lib/toc.ts", "components/toc.tsx"] },
+    { "q": "which pages are protected and redirect logged out users", "relevant": ["middleware.ts"] },
+    { "q": "how does a user change their display name", "relevant": ["components/user-name-form.tsx", "app/api/users/[userId]/route.ts", "lib/validations/user.ts"] },
+    { "q": "how is the post editor implemented and how does it save", "relevant": ["components/editor.tsx", "app/api/posts/[postId]/route.ts", "app/(editor)/editor/[postId]/page.tsx"] },
+    { "q": "how are open graph images generated", "relevant": ["app/api/og/route.tsx", "lib/validations/og.ts"] },
+    { "q": "how is the database client set up", "relevant": ["lib/db.ts"] },
+    { "q": "how is dark mode toggled", "relevant": ["components/mode-toggle.tsx", "components/theme-provider.tsx"] }
+  ]
+}

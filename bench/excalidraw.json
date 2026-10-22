@@ -1,0 +1,20 @@
+{
+  "name": "excalidraw",
+  "repo": "https://github.com/excalidraw/excalidraw",
+  "commit": "1d4dc2c0e6e476911d0760e9c3cf3694f2d43384",
+  "cases": [
+    { "q": "how are elements rotated", "relevant": ["packages/element/src/resizeElements.ts", "packages/element/src/transformHandles.ts"] },
+    { "q": "how does dragging selected elements work", "relevant": ["packages/element/src/dragElements.ts"] },
+    { "q": "how is the scene exported to png or svg", "relevant": ["packages/excalidraw/scene/export.ts", "packages/excalidraw/actions/actionExport.tsx"] },
+    { "q": "how does undo and redo work", "relevant": ["packages/excalidraw/history.ts", "packages/excalidraw/actions/actionHistory.tsx", "packages/element/src/store.ts"] },
+    { "q": "how are elements grouped and ungrouped", "relevant": ["packages/element/src/groups.ts", "packages/excalidraw/actions/actionGroup.tsx"] },
+    { "q": "how do bring to front and send to back work", "relevant": ["packages/element/src/zindex.ts", "packages/excalidraw/actions/actionZindex.tsx"] },
+    { "q": "how does copy and paste work", "relevant": ["packages/excalidraw/clipboard.ts", "packages/excalidraw/actions/actionClipboard.tsx"] },
+    { "q": "how are arrows bound to shapes", "relevant": ["packages/element/src/binding.ts"] },
+    { "q": "how is a shareable link encrypted", "relevant": ["packages/excalidraw/data/encryption.ts"] },
+    { "q": "how are fonts loaded", "relevant": ["packages/excalidraw/fonts/Fonts.ts", "packages/excalidraw/fonts/ExcalidrawFontFace.ts"] },
+    { "q": "how does snapping to other elements work", "relevant": ["packages/excalidraw/snapping.ts"] },
+    { "q": "how does the library save and load items", "relevant": ["packages/excalidraw/data/library.ts"] },
+    { "q": "how are elements aligned", "relevant": ["packages/element/src/align.ts", "packages/excalidraw/actions/actionAlign.tsx"] }
+  ]
+}
