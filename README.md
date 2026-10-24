@@ -2,6 +2,8 @@
 
 **Give an AI assistant the right code, not all of it.**
 
+**Live demo: https://jay-m007.github.io/contextcode/** (runs in your browser, nothing is uploaded)
+
 ContextCode reads a JavaScript or TypeScript project, ranks its files for a question you want to ask, explains why each file was picked, and packs the best ones into a token budget you choose. Paste the result into any AI assistant, or let ContextCode ask a model for you.
 
 > College project by [@jay-m007](https://github.com/jay-m007). It reuses the parser and import resolver from my previous project, [ArchGuard](https://github.com/jay-m007/archguard).
