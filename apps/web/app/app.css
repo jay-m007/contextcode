@@ -422,32 +422,41 @@
 .row__tiers {
   display: flex;
   align-items: center;
-  gap: 2px;
-  margin: 6px 0 0 32px;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 2px 32px;
+}
+.row__tiers-label {
+  font-size: var(--text-xs);
+  color: var(--ink-3);
+  margin-right: 2px;
 }
 .tier {
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 3px;
-  padding: 1px 7px;
-  font-size: 11px;
-  color: var(--ink-3);
+  border: 1px solid var(--rule-strong);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 3px 10px;
+  font-size: var(--text-xs);
+  color: var(--ink-2);
   cursor: pointer;
 }
 .tier:hover {
   color: var(--ink);
-  border-color: var(--rule-strong);
+  border-color: var(--ink-3);
 }
 .tier--on {
-  color: var(--ink);
-  border-color: var(--rule-strong);
-  background: var(--surface-2);
+  color: var(--hl-ink);
+  border-color: var(--hl);
+  background: var(--hl);
+  font-weight: 700;
 }
 .tier--manual {
-  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink);
 }
 .tier--reset {
   margin-left: var(--space-1);
+  border-color: transparent;
+  background: transparent;
   text-decoration: underline;
 }
 .tier__auto {

@@ -90,6 +90,9 @@ export function FileList(props: {
                   </div>
                 </div>
                 <div className="row__tiers" role="radiogroup" aria-label={`Detail level for ${r.path}`}>
+                  <span className="row__tiers-label" aria-hidden="true">
+                    Include
+                  </span>
                   {TIERS.map((t) => (
                     <button
                       key={t.id}
